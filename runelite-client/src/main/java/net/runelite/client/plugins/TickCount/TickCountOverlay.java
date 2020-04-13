@@ -1,24 +1,21 @@
-package net.runelite.client.plugins.MyFirstPlugin;
+package net.runelite.client.plugins.TickCount;
 
-import lombok.extern.slf4j.Slf4j;
-import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
-import net.runelite.client.ui.overlay.components.LineComponent;
 import net.runelite.client.ui.overlay.components.PanelComponent;
 import net.runelite.client.ui.overlay.components.TitleComponent;
 
 import javax.inject.Inject;
 import java.awt.*;
 
-public class MyFirstPluginOverlay extends Overlay {
+public class TickCountOverlay extends Overlay {
 
-    private MyFirstPlugin plugin;
+    private TickCountPlugin plugin;
     private final PanelComponent panelComponent = new PanelComponent();
 
     @Inject
-    public MyFirstPluginOverlay(MyFirstPlugin plugin) {
+    public TickCountOverlay(TickCountPlugin plugin) {
         super(plugin);
         setPosition(OverlayPosition.TOP_RIGHT);
         setLayer(OverlayLayer.ABOVE_SCENE);

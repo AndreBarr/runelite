@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.MyFirstPlugin;
+package net.runelite.client.plugins.TickCount;
 
 import com.google.inject.Provides;
 import lombok.Getter;
@@ -11,24 +11,27 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
 
 import javax.inject.Inject;
+import java.awt.image.BufferedImage;
 
 @Slf4j
 @PluginDescriptor(
-        name = "MyFirstPlugin",
-        description = "My first plugin"
+        name = "TickCounter",
+        description = "Counts Game Ticks"
 )
 
-public class MyFirstPlugin extends Plugin {
+public class TickCountPlugin extends Plugin {
 
     @Getter @Setter
     private int tickCount = 0;
 
     @Getter @Setter
     private int count = 0;
+
+    private TickCounter counter;
 
     @Inject
     private Client client;
@@ -37,14 +40,17 @@ public class MyFirstPlugin extends Plugin {
     private OverlayManager overlayManager;
 
     @Inject
-    private MyFirstPluginOverlay myOverLay;
+    private TickCountOverlay myOverLay;
 
     @Inject
-    private MyFirstPluginConfig myConfig;
+    private TickCountConfig myConfig;
+
+    @Inject
+    private InfoBoxManager infoBoxManager;
 
     @Provides
-    MyFirstPluginConfig getMyConfig(ConfigManager configManager) {
-        return configManager.getConfig(MyFirstPluginConfig.class);
+    TickCountConfig getMyConfig(ConfigManager configManager) {
+        return configManager.getConfig(TickCountConfig.class);
     }
 
     @Subscribe
@@ -54,17 +60,27 @@ public class MyFirstPlugin extends Plugin {
 
     @Override
     public void startUp(){
-        overlayManager.add(myOverLay);
+//        overlayManager.add(myOverLay);
+
+        counter = new TickCounter(this, 1);
+        infoBoxManager.addInfoBox(counter);
     }
 
     @Override
     public void shutDown(){
-        overlayManager.remove(myOverLay);
+//        overlayManager.remove(myOverLay);
+
+        infoBoxManager.removeInfoBox(counter);
+        counter = null;
     }
 
     @Subscribe
     public void onGameTick (GameTick event) {
-        setCount((getCount() % getTickCount()) + 1);
+        updateCount();
+    }
+
+    private void updateCount () {
+        counter.setCount((counter.getCount() % getTickCount()) + 1);
     }
 
 }

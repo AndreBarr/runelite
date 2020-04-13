@@ -1,11 +1,11 @@
-package net.runelite.client.plugins.MyFirstPlugin;
+package net.runelite.client.plugins.TickCount;
 
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 
 @ConfigGroup("myconfig")
-public interface MyFirstPluginConfig extends Config {
+public interface TickCountConfig extends Config {
 
     @ConfigItem(
             position = 1,
