@@ -130,4 +130,15 @@ public interface NpcIndicatorsConfigTwo extends Config
 	{
 		return false;
 	}
+
+	@ConfigItem(
+			position = 9,
+			keyName = "npcAttackAnimationIDs",
+			name = "NPCs attack animation ID",
+			description = "List of NPC attack animation IDs"
+	)
+	default String getNpcAnimationIDs()
+	{
+		return "";
+	}
 }

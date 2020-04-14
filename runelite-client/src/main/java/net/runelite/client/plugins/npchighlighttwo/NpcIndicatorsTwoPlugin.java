@@ -48,7 +48,6 @@ import net.runelite.client.util.Text;
 import net.runelite.client.util.WildcardMatcher;
 
 import javax.inject.Inject;
-import java.awt.*;
 import java.time.Instant;
 import java.util.*;
 import java.util.List;
@@ -128,6 +127,8 @@ public class NpcIndicatorsTwoPlugin extends Plugin
 	 */
 	private List<String> highlights = new ArrayList<>();
 
+	private List<String> npcAttackAnimations = new ArrayList<>();
+
 	/**
 	 * NPC ids marked with the Tag option
 	 */
@@ -168,16 +169,19 @@ public class NpcIndicatorsTwoPlugin extends Plugin
 		return configManager.getConfig(NpcIndicatorsConfigTwo.class);
 	}
 
+
+
 	@Override
 	protected void startUp() throws Exception
 	{
-		attackAnimations.add(5849);
-		attackAnimations.add(422);
-		attackAnimations.add(6188);
+//		attackAnimations.add(5849);
+//		attackAnimations.add(422);
+//		attackAnimations.add(6188);
 
 		overlayManager.add(npcSceneOverlay);
 		overlayManager.add(npcMinimapOverlay);
 		keyManager.registerKeyListener(inputListener);
+		npcAttackAnimations = getNPCAttackAnimations();
 		highlights = getHighlights();
 		npcSceneOverlay.setColor(config.getHighlightColor());
 		clientThread.invoke(() ->
@@ -199,6 +203,7 @@ public class NpcIndicatorsTwoPlugin extends Plugin
 		teleportGraphicsObjectSpawnedThisTick.clear();
 		npcTags.clear();
 		highlightedNpcs.clear();
+		npcAttackAnimations.clear();
 		keyManager.unregisterKeyListener(inputListener);
 	}
 
@@ -209,6 +214,7 @@ public class NpcIndicatorsTwoPlugin extends Plugin
 			event.getGameState() == GameState.HOPPING)
 		{
 			highlightedNpcs.clear();
+			npcAttackAnimations.clear();
 			deadNpcsToDisplay.clear();
 			memorizedNpcs.forEach((id, npc) -> npc.setDiedOnTick(-1));
 			lastPlayerLocation = null;
@@ -225,6 +231,7 @@ public class NpcIndicatorsTwoPlugin extends Plugin
 		}
 
 		highlights = getHighlights();
+		npcAttackAnimations = getNPCAttackAnimations();
 		npcSceneOverlay.setColor(config.getHighlightColor());
 		rebuildAllNpcs();
 	}
@@ -429,9 +436,6 @@ public class NpcIndicatorsTwoPlugin extends Plugin
 	}
 
 	@Getter @Setter
-	Set<Integer> attackAnimations = new HashSet<>();
-
-	@Getter @Setter
 	HashMap<Actor, Integer> attackStarts = new HashMap<>();
 
 	@Getter @Setter
@@ -440,7 +444,7 @@ public class NpcIndicatorsTwoPlugin extends Plugin
 	@Subscribe
 	public void onAnimationChanged(AnimationChanged event) {
 		if (highlightedNpcs.contains(event.getActor())) {
-			if (attackAnimations.contains(event.getActor().getAnimation())) {
+			if (npcAttackAnimations.contains(Integer.toString(event.getActor().getAnimation()))) {
 				lastAttacks.put(event.getActor(), getCounter());
 				if (attackStarts.containsKey(event.getActor())) {
 					int attackSpeed = getCounter() - attackStarts.get(event.getActor());
@@ -549,6 +553,17 @@ public class NpcIndicatorsTwoPlugin extends Plugin
 	List<String> getHighlights()
 	{
 		final String configNpcs = config.getNpcToHighlight().toLowerCase();
+
+		if (configNpcs.isEmpty())
+		{
+			return Collections.emptyList();
+		}
+
+		return Text.fromCSV(configNpcs);
+	}
+
+	List<String> getNPCAttackAnimations() {
+		final String configNpcs = config.getNpcAnimationIDs();
 
 		if (configNpcs.isEmpty())
 		{
