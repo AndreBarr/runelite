@@ -30,11 +30,11 @@ import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import javax.inject.Inject;
 import lombok.Getter;
-import lombok.Setter;
-import net.runelite.api.ClanMemberManager;
+import net.runelite.api.FriendsChatManager;
 import net.runelite.api.Client;
 import static net.runelite.api.MenuAction.RUNELITE_OVERLAY;
 import static net.runelite.api.MenuAction.RUNELITE_OVERLAY_CONFIG;
+import net.runelite.api.Varbits;
 import net.runelite.client.game.WorldService;
 import net.runelite.client.plugins.raids.solver.Room;
 import static net.runelite.client.ui.overlay.OverlayManager.OPTION_CONFIGURE;
@@ -49,25 +49,22 @@ import net.runelite.http.api.worlds.World;
 import net.runelite.http.api.worlds.WorldRegion;
 import net.runelite.http.api.worlds.WorldResult;
 
-public class RaidsOverlay extends OverlayPanel
+class RaidsOverlay extends OverlayPanel
 {
 	private static final int OLM_PLANE = 0;
 	static final String BROADCAST_ACTION = "Broadcast layout";
 	static final String SCREENSHOT_ACTION = "Screenshot";
 
-	private Client client;
-	private RaidsPlugin plugin;
-	private RaidsConfig config;
+	private final Client client;
+	private final RaidsPlugin plugin;
+	private final RaidsConfig config;
+	private final WorldService worldService;
 
 	@Getter
-	@Setter
 	private boolean scoutOverlayShown = false;
 
 	@Inject
-	private WorldService worldService;
-
-	@Inject
-	private RaidsOverlay(Client client, RaidsPlugin plugin, RaidsConfig config)
+	private RaidsOverlay(Client client, RaidsPlugin plugin, RaidsConfig config, WorldService worldService)
 	{
 		super(plugin);
 		setPosition(OverlayPosition.TOP_LEFT);
@@ -75,6 +72,7 @@ public class RaidsOverlay extends OverlayPanel
 		this.client = client;
 		this.plugin = plugin;
 		this.config = config;
+		this.worldService = worldService;
 		getMenuEntries().add(new OverlayMenuEntry(RUNELITE_OVERLAY_CONFIG, OPTION_CONFIGURE, "Raids overlay"));
 		getMenuEntries().add(new OverlayMenuEntry(RUNELITE_OVERLAY, BROADCAST_ACTION, "Raids overlay"));
 		getMenuEntries().add(new OverlayMenuEntry(RUNELITE_OVERLAY, SCREENSHOT_ACTION, "Raids overlay"));
@@ -83,19 +81,10 @@ public class RaidsOverlay extends OverlayPanel
 	@Override
 	public Dimension render(Graphics2D graphics)
 	{
-		if (!config.scoutOverlay() || !scoutOverlayShown || plugin.isInRaidChambers() && client.getPlane() == OLM_PLANE)
+		scoutOverlayShown = shouldShowOverlay();
+		if (!scoutOverlayShown)
 		{
 			return null;
-		}
-
-		if (plugin.getRaid() == null || plugin.getRaid().getLayout() == null)
-		{
-			panelComponent.getChildren().add(TitleComponent.builder()
-				.text("Unable to scout this raid!")
-				.color(Color.RED)
-				.build());
-
-			return super.render(graphics);
 		}
 
 		Color color = Color.WHITE;
@@ -111,10 +100,10 @@ public class RaidsOverlay extends OverlayPanel
 			.color(color)
 			.build());
 
-		if (config.ccDisplay())
+		if (config.fcDisplay())
 		{
 			color = Color.RED;
-			ClanMemberManager clanMemberManager = client.getClanMemberManager();
+			FriendsChatManager friendsChatManager = client.getFriendsChatManager();
 			FontMetrics metrics = graphics.getFontMetrics();
 
 			String worldString = "W" + client.getWorld();
@@ -130,17 +119,17 @@ public class RaidsOverlay extends OverlayPanel
 				}
 			}
 
-			String clanOwner = "Join a CC";
-			if (clanMemberManager != null)
+			String owner = "Join a FC";
+			if (friendsChatManager != null)
 			{
-				clanOwner = clanMemberManager.getClanOwner();
+				owner = friendsChatManager.getOwner();
 				color = Color.ORANGE;
 			}
 
-			panelComponent.setPreferredSize(new Dimension(Math.max(ComponentConstants.STANDARD_WIDTH, metrics.stringWidth(worldString) + metrics.stringWidth(clanOwner) + 14), 0));
+			panelComponent.setPreferredSize(new Dimension(Math.max(ComponentConstants.STANDARD_WIDTH, metrics.stringWidth(worldString) + metrics.stringWidth(owner) + 14), 0));
 			panelComponent.getChildren().add(LineComponent.builder()
 				.left(worldString)
-				.right(clanOwner)
+				.right(owner)
 				.leftColor(Color.ORANGE)
 				.rightColor(color)
 				.build());
@@ -203,5 +192,35 @@ public class RaidsOverlay extends OverlayPanel
 		}
 
 		return super.render(graphics);
+	}
+
+	private boolean shouldShowOverlay()
+	{
+		if (plugin.getRaid() == null
+			|| plugin.getRaid().getLayout() == null
+			|| !config.scoutOverlay())
+		{
+			return false;
+		}
+
+		if (plugin.isInRaidChambers())
+		{
+			// If the raid has started
+			if (client.getVar(Varbits.RAID_STATE) > 0)
+			{
+				if (client.getPlane() == OLM_PLANE)
+				{
+					return false;
+				}
+
+				return config.scoutOverlayInRaid();
+			}
+			else
+			{
+				return true;
+			}
+		}
+
+		return plugin.getRaidPartyID() != -1 && config.scoutOverlayAtBank();
 	}
 }

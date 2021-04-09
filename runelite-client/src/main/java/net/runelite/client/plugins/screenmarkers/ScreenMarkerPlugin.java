@@ -42,6 +42,7 @@ import java.util.stream.Stream;
 import javax.inject.Inject;
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.Setter;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
@@ -87,9 +88,15 @@ public class ScreenMarkerPlugin extends Plugin
 	@Inject
 	private ScreenMarkerCreationOverlay overlay;
 
+	@Inject
+	private Gson gson;
+
 	@Getter
 	@Inject
 	private ColorPickerManager colorPickerManager;
+
+	@Inject
+	private ScreenMarkerWidgetHighlightOverlay widgetHighlight;
 
 	private ScreenMarkerMouseListener mouseListener;
 	private ScreenMarkerPluginPanel pluginPanel;
@@ -99,20 +106,29 @@ public class ScreenMarkerPlugin extends Plugin
 	private ScreenMarker currentMarker;
 
 	@Getter
+	@Setter
 	private boolean creatingScreenMarker = false;
+
+	@Getter
+	private boolean drawingScreenMarker = false;
+
+	@Getter
+	@Setter
+	private Rectangle selectedWidgetBounds = null;
 	private Point startLocation = null;
 
 	@Override
 	protected void startUp() throws Exception
 	{
 		overlayManager.add(overlay);
+		overlayManager.add(widgetHighlight);
 		loadConfig(configManager.getConfiguration(CONFIG_GROUP, CONFIG_KEY)).forEach(screenMarkers::add);
 		screenMarkers.forEach(overlayManager::add);
 
 		pluginPanel = new ScreenMarkerPluginPanel(this);
 		pluginPanel.rebuild();
 
-		final BufferedImage icon = ImageUtil.getResourceStreamFromClass(getClass(), ICON_FILE);
+		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), ICON_FILE);
 
 		navigationButton = NavigationButton.builder()
 			.tooltip(PLUGIN_NAME)
@@ -130,16 +146,19 @@ public class ScreenMarkerPlugin extends Plugin
 	protected void shutDown() throws Exception
 	{
 		overlayManager.remove(overlay);
+		overlayManager.remove(widgetHighlight);
 		overlayManager.removeIf(ScreenMarkerOverlay.class::isInstance);
 		screenMarkers.clear();
 		clientToolbar.removeNavigation(navigationButton);
 		setMouseListenerEnabled(false);
 		creatingScreenMarker = false;
+		drawingScreenMarker = false;
 
 		pluginPanel = null;
 		currentMarker = null;
 		mouseListener = null;
 		navigationButton = null;
+		selectedWidgetBounds = null;
 	}
 
 	@Subscribe
@@ -167,6 +186,17 @@ public class ScreenMarkerPlugin extends Plugin
 
 	public void startCreation(Point location)
 	{
+		startCreation(location, DEFAULT_SIZE);
+
+		// Stop the highlighting so we don't get rectangles around widgets while trying to make normal screen markers
+		if (selectedWidgetBounds == null)
+		{
+			drawingScreenMarker = true;
+		}
+	}
+
+	public void startCreation(Point location, Dimension size)
+	{
 		currentMarker = new ScreenMarker(
 			Instant.now().toEpochMilli(),
 			DEFAULT_MARKER_NAME + " " + (screenMarkers.size() + 1),
@@ -179,8 +209,7 @@ public class ScreenMarkerPlugin extends Plugin
 		// Set overlay creator bounds to current position and default size
 		startLocation = location;
 		overlay.setPreferredLocation(location);
-		overlay.setPreferredSize(DEFAULT_SIZE);
-		creatingScreenMarker = true;
+		overlay.setPreferredSize(size);
 	}
 
 	public void finishCreation(boolean aborted)
@@ -200,6 +229,8 @@ public class ScreenMarkerPlugin extends Plugin
 		}
 
 		creatingScreenMarker = false;
+		drawingScreenMarker = false;
+		selectedWidgetBounds = null;
 		startLocation = null;
 		currentMarker = null;
 		setMouseListenerEnabled(false);
@@ -207,7 +238,6 @@ public class ScreenMarkerPlugin extends Plugin
 		pluginPanel.setCreation(false);
 	}
 
-	/* The marker area has been drawn, inform the user and unlock the confirm button */
 	public void completeSelection()
 	{
 		pluginPanel.getCreationPanel().unlockConfirm();
@@ -224,6 +254,7 @@ public class ScreenMarkerPlugin extends Plugin
 
 	void resizeMarker(Point point)
 	{
+		drawingScreenMarker = true;
 		Rectangle bounds = new Rectangle(startLocation);
 		bounds.add(point);
 		overlay.setPreferredLocation(bounds.getLocation());
@@ -238,7 +269,6 @@ public class ScreenMarkerPlugin extends Plugin
 			return;
 		}
 
-		final Gson gson = new Gson();
 		final String json = gson
 			.toJson(screenMarkers.stream().map(ScreenMarkerOverlay::getMarker).collect(Collectors.toList()));
 		configManager.setConfiguration(CONFIG_GROUP, CONFIG_KEY, json);
@@ -251,7 +281,6 @@ public class ScreenMarkerPlugin extends Plugin
 			return Stream.empty();
 		}
 
-		final Gson gson = new Gson();
 		final List<ScreenMarker> screenMarkerData = gson.fromJson(json, new TypeToken<ArrayList<ScreenMarker>>()
 		{
 		}.getType());

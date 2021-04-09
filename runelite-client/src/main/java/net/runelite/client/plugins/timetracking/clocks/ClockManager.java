@@ -53,6 +53,9 @@ public class ClockManager
 	@Inject
 	private Notifier notifier;
 
+	@Inject
+	private Gson gson;
+
 	@Getter
 	private final List<Timer> timers = new CopyOnWriteArrayList<>();
 
@@ -122,6 +125,11 @@ public class ClockManager
 				{
 					notifier.notify("[" + timer.getName() + "] has finished counting down.");
 				}
+
+				if (timer.isLoop())
+				{
+					timer.start();
+				}
 			}
 		}
 
@@ -178,7 +186,6 @@ public class ClockManager
 
 		if (!Strings.isNullOrEmpty(timersJson))
 		{
-			final Gson gson = new Gson();
 			final List<Timer> timers = gson.fromJson(timersJson, new TypeToken<ArrayList<Timer>>()
 			{
 			}.getType());
@@ -195,7 +202,6 @@ public class ClockManager
 
 		if (!Strings.isNullOrEmpty(stopwatchesJson))
 		{
-			final Gson gson = new Gson();
 			final List<Stopwatch> stopwatches = gson.fromJson(stopwatchesJson, new TypeToken<ArrayList<Stopwatch>>()
 			{
 			}.getType());
@@ -222,14 +228,12 @@ public class ClockManager
 
 	void saveTimers()
 	{
-		final Gson gson = new Gson();
 		final String json = gson.toJson(timers);
 		configManager.setConfiguration(TimeTrackingConfig.CONFIG_GROUP, TimeTrackingConfig.TIMERS, json);
 	}
 
 	void saveStopwatches()
 	{
-		final Gson gson = new Gson();
 		final String json = gson.toJson(stopwatches);
 		configManager.setConfiguration(TimeTrackingConfig.CONFIG_GROUP, TimeTrackingConfig.STOPWATCHES, json);
 	}
