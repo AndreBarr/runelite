@@ -66,6 +66,7 @@ import net.runelite.client.Notifier;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.OverlayMenuClicked;
+import net.runelite.client.game.FishingSpot;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -214,6 +215,11 @@ public class FishingPlugin extends Plugin
 			spotOverlay.setHidden(false);
 			fishingSpotMinimapOverlay.setHidden(false);
 		}
+
+		if (event.getMessage().equals("A flying fish jumps up and eats some of your minnows!") && config.flyingFishNotification())
+		{
+			notifier.notify("A flying fish is eating your minnows!");
+		}
 	}
 
 	@Subscribe
@@ -251,15 +257,13 @@ public class FishingPlugin extends Plugin
 
 		for (Item item : itemContainer.getItems())
 		{
-			if (item == null)
-			{
-				continue;
-			}
 			switch (item.getId())
 			{
 				case ItemID.DRAGON_HARPOON:
+				case ItemID.DRAGON_HARPOON_OR:
 				case ItemID.INFERNAL_HARPOON:
 				case ItemID.INFERNAL_HARPOON_UNCHARGED:
+				case ItemID.INFERNAL_HARPOON_UNCHARGED_25367:
 				case ItemID.HARPOON:
 				case ItemID.BARBTAIL_HARPOON:
 				case ItemID.BIG_FISHING_NET:
@@ -277,6 +281,11 @@ public class FishingPlugin extends Plugin
 				case ItemID.KARAMBWAN_VESSEL_3159:
 				case ItemID.CORMORANTS_GLOVE:
 				case ItemID.CORMORANTS_GLOVE_22817:
+				case ItemID.INFERNAL_HARPOON_OR:
+				case ItemID.TRAILBLAZER_HARPOON:
+				case ItemID.CRYSTAL_HARPOON:
+				case ItemID.CRYSTAL_HARPOON_23864:
+				case ItemID.CRYSTAL_HARPOON_INACTIVE:
 					return true;
 			}
 		}
@@ -368,7 +377,7 @@ public class FishingPlugin extends Plugin
 		{
 			if (!trawlerNotificationSent)
 			{
-				notifier.notify("[" + client.getLocalPlayer().getName() + "] has low Fishing Trawler activity!");
+				notifier.notify("You have low Fishing Trawler activity!");
 				trawlerNotificationSent = true;
 			}
 		}

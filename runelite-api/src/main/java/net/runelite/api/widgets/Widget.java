@@ -26,6 +26,7 @@ package net.runelite.api.widgets;
 
 import java.awt.Rectangle;
 import java.util.Collection;
+import javax.annotation.Nullable;
 import net.runelite.api.FontTypeFace;
 import net.runelite.api.Point;
 
@@ -116,6 +117,7 @@ public interface Widget
 	/**
 	 * Gets the dynamic children of this widget in a sparse array
 	 */
+	@Nullable
 	Widget[] getChildren();
 
 	/**
@@ -242,16 +244,18 @@ public interface Widget
 	void setName(String name);
 
 	/**
-	 * Gets the model ID displayed in the widget.
+	 * Gets the Model/NPC/Item ID displayed in the widget.
+	 *
+	 * @see WidgetModelType
 	 */
 	int getModelId();
 
 	/**
-	 * Sets the model ID displayed in the widget.
+	 * Sets the Model/NPC/Item ID displayed in the widget.
 	 *
-	 * @param modelId the new model ID
+	 * @see WidgetModelType
 	 */
-	void setModelId(int modelId);
+	void setModelId(int id);
 
 	/**
 	 * Gets the model type of the widget.
@@ -267,6 +271,20 @@ public interface Widget
 	 * @see WidgetModelType
 	 */
 	void setModelType(int type);
+
+	/**
+	 * Gets the sequence ID used to animate the model in the widget
+	 *
+	 * @see net.runelite.api.AnimationID
+	 */
+	int getAnimationId();
+
+	/**
+	 * Sets the sequence ID used to animate the model in the widget
+	 *
+	 * @see net.runelite.api.AnimationID
+	 */
+	void setAnimationId(int animationId);
 
 	/**
 	 * Gets the x rotation of the model displayed in the widget.
@@ -335,6 +353,16 @@ public interface Widget
 	 * @see net.runelite.api.SpriteID
 	 */
 	int getSpriteId();
+
+	/**
+	 * Gets if sprites are repeated or stretched
+	 */
+	boolean getSpriteTiling();
+
+	/**
+	 * Sets if sprites are repeated or stretched
+	 */
+	void setSpriteTiling(boolean tiling);
 
 	/**
 	 * Sets the sprite ID displayed in the widget.
@@ -693,15 +721,31 @@ public interface Widget
 	void revalidateScroll();
 
 	/**
-	 * Array of widget key listeners
+	 * Gets the script and arguments to be ran when a menu action is clicked.
+	 *
+	 * @return
+	 */
+	Object[] getOnOpListener();
+
+	/**
+	 * Gets the script and arguments to be ran when a key is pressed.
+	 *
+	 * @return
 	 */
 	Object[] getOnKeyListener();
 
 	/**
-	 * Array of widget load listeners
+	 * Gets the script and arguments to be ran when a interface is loaded.
+	 *
+	 * @return
 	 */
 	Object[] getOnLoadListener();
 
+	/**
+	 * Gets the script and arguments to be ran when one of the listened for inventories changes.
+	 *
+	 * @return
+	 */
 	Object[] getOnInvTransmitListener();
 
 	/**
@@ -930,4 +974,35 @@ public interface Widget
 	 * @param args A ScriptID, then the args for the script
 	 */
 	void setOnReleaseListener(Object ...args);
+
+	/**
+	 * Sets a script to be ran when a drag operation is finished on this widget
+	 *
+	 * @param args A ScriptID, then the args for the script
+	 */
+	void setOnDragCompleteListener(Object ...args);
+
+	/**
+	 * Sets a script to be ran when this widget moves due to a drag
+	 *
+	 * @param args A ScriptID, then the args for the script
+	 */
+	void setOnDragListener(Object ...args);
+
+	/**
+	 * Container this can be dragged in
+	 */
+	Widget getDragParent();
+
+	/**
+	 * Container this can be dragged in
+	 */
+	void setDragParent(Widget dragParent);
+
+	/**
+	 * Sets a script to be ran when a varplayer changes
+	 *
+	 * @param args A ScriptID, then the args for the script
+	 */
+	void setOnVarTransmitListener(Object ...args);
 }

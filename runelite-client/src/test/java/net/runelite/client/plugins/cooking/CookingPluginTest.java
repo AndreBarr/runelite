@@ -59,8 +59,11 @@ public class CookingPluginTest
 		"You cook the karambwan. It looks delicious.",
 		"You roast a lobster.",
 		"You cook a bass.",
-		"You successfully bake a tasty garden pie."
+		"You successfully bake a tasty garden pie.",
+		"You dry a piece of meat and extract the sinew."
 	};
+
+	private static final String incenseBurnerMessage = "You burn some marrentill in the incense burner.";
 
 	@Inject
 	CookingPlugin cookingPlugin;
@@ -104,9 +107,13 @@ public class CookingPluginTest
 			cookingPlugin.onChatMessage(chatMessage);
 		}
 
+		ChatMessage chatMessage = new ChatMessage(null, ChatMessageType.SPAM, "", incenseBurnerMessage, "", 0);
+		cookingPlugin.onChatMessage(chatMessage);
+
 		CookingSession cookingSession = cookingPlugin.getSession();
 		assertNotNull(cookingSession);
 		assertEquals(COOKING_MESSAGES.length, cookingSession.getCookAmount());
+		assertEquals(0, cookingSession.getBurnAmount());
 	}
 
 	@Test

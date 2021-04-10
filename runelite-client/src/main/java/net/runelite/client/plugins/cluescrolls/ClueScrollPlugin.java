@@ -36,12 +36,10 @@ import java.awt.Rectangle;
 import java.awt.geom.Area;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -56,6 +54,7 @@ import net.runelite.api.GameState;
 import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
+import net.runelite.api.ItemContainer;
 import net.runelite.api.ItemID;
 import net.runelite.api.MenuAction;
 import net.runelite.api.NPC;
@@ -97,7 +96,10 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.events.OverlayMenuClicked;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
+import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.banktags.BankTagsPlugin;
+import net.runelite.client.plugins.banktags.TagManager;
 import net.runelite.client.plugins.cluescrolls.clues.AnagramClue;
 import net.runelite.client.plugins.cluescrolls.clues.BeginnerMapClue;
 import net.runelite.client.plugins.cluescrolls.clues.CipherClue;
@@ -118,6 +120,7 @@ import net.runelite.client.plugins.cluescrolls.clues.ObjectClueScroll;
 import net.runelite.client.plugins.cluescrolls.clues.SkillChallengeClue;
 import net.runelite.client.plugins.cluescrolls.clues.TextClueScroll;
 import net.runelite.client.plugins.cluescrolls.clues.ThreeStepCrypticClue;
+import net.runelite.client.plugins.cluescrolls.clues.item.ItemRequirement;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.ui.overlay.OverlayMenuEntry;
 import net.runelite.client.ui.overlay.OverlayUtil;
@@ -132,6 +135,7 @@ import org.apache.commons.lang3.ArrayUtils;
 	description = "Show answers to clue scroll riddles, anagrams, ciphers, and cryptic clues",
 	tags = {"arrow", "hints", "world", "map", "coordinates", "emotes"}
 )
+@PluginDependency(BankTagsPlugin.class)
 @Slf4j
 public class ClueScrollPlugin extends Plugin
 {
@@ -145,6 +149,7 @@ public class ClueScrollPlugin extends Plugin
 		13150, 9011,
 		13151, 9012
 	};
+	private static final String CLUE_TAG_NAME = "clue";
 
 	@Getter
 	private ClueScroll clue;
@@ -193,6 +198,9 @@ public class ClueScrollPlugin extends Plugin
 	private WorldMapPointManager worldMapPointManager;
 
 	@Inject
+	private TagManager tagManager;
+
+	@Inject
 	@Named("developerMode")
 	boolean developerMode;
 
@@ -228,11 +236,13 @@ public class ClueScrollPlugin extends Plugin
 		overlayManager.add(clueScrollEmoteOverlay);
 		overlayManager.add(clueScrollWorldOverlay);
 		overlayManager.add(clueScrollMusicOverlay);
+		tagManager.registerTag(CLUE_TAG_NAME, this::testClueTag);
 	}
 
 	@Override
 	protected void shutDown() throws Exception
 	{
+		tagManager.unregisterTag(CLUE_TAG_NAME);
 		overlayManager.remove(clueScrollOverlay);
 		overlayManager.remove(clueScrollEmoteOverlay);
 		overlayManager.remove(clueScrollWorldOverlay);
@@ -321,10 +331,10 @@ public class ClueScrollPlugin extends Plugin
 		// Check if item was removed from inventory
 		if (clue != null && clueItemId != null)
 		{
-			final Stream<Item> items = Arrays.stream(event.getItemContainer().getItems());
+			ItemContainer itemContainer = event.getItemContainer();
 
 			// Check if clue was removed from inventory
-			if (items.noneMatch(item -> itemManager.getItemComposition(item.getId()).getId() == clueItemId))
+			if (!itemContainer.contains(clueItemId))
 			{
 				resetClue(true);
 			}
@@ -333,7 +343,7 @@ public class ClueScrollPlugin extends Plugin
 		// if three step clue check for clue scroll pieces
 		if (clue instanceof ThreeStepCrypticClue)
 		{
-			if (((ThreeStepCrypticClue) clue).update(client, event, itemManager))
+			if (((ThreeStepCrypticClue) clue).update(event.getContainerId(), event.getItemContainer()))
 			{
 				worldMapPointsSet = false;
 				npcsToMark.clear();
@@ -485,6 +495,10 @@ public class ClueScrollPlugin extends Plugin
 		{
 			resetClue(true);
 		}
+		else if (state == GameState.HOPPING)
+		{
+			namedObjectCheckThisTick = true;
+		}
 	}
 
 	@Subscribe
@@ -551,6 +565,7 @@ public class ClueScrollPlugin extends Plugin
 		}
 
 		// Load the current plane's tiles if a tick has elapsed since the player has changed planes
+		// or upon reaching a logged in state after hopping worlds
 		if (namedObjectCheckThisTick)
 		{
 			namedObjectCheckThisTick = false;
@@ -570,7 +585,7 @@ public class ClueScrollPlugin extends Plugin
 		if (chatDialogClueItem != null
 			&& (chatDialogClueItem.getItemId() == ItemID.CLUE_SCROLL_BEGINNER || chatDialogClueItem.getItemId() == ItemID.CLUE_SCROLL_MASTER))
 		{
-			resetClue(true);
+			resetClue(false);
 		}
 
 		final Widget clueScrollText = client.getWidget(WidgetInfo.CLUE_SCROLL_TEXT);
@@ -626,7 +641,7 @@ public class ClueScrollPlugin extends Plugin
 			return emoteImage;
 		}
 
-		emoteImage = ImageUtil.getResourceStreamFromClass(getClass(), "emote.png");
+		emoteImage = ImageUtil.loadImageResource(getClass(), "emote.png");
 
 		return emoteImage;
 	}
@@ -643,7 +658,7 @@ public class ClueScrollPlugin extends Plugin
 			return mapArrow;
 		}
 
-		mapArrow = ImageUtil.getResourceStreamFromClass(getClass(), "/util/clue_arrow.png");
+		mapArrow = ImageUtil.loadImageResource(getClass(), "/util/clue_arrow.png");
 
 		return mapArrow;
 	}
@@ -1109,5 +1124,39 @@ public class ClueScrollPlugin extends Plugin
 			}
 		}
 		return worldPoint;
+	}
+
+	private boolean testClueTag(int itemId)
+	{
+		ClueScroll c = clue;
+		if (c == null)
+		{
+			return false;
+		}
+
+		if (c instanceof EmoteClue)
+		{
+			EmoteClue emote = (EmoteClue) c;
+
+			for (ItemRequirement ir : emote.getItemRequirements())
+			{
+				if (ir.fulfilledBy(itemId))
+				{
+					return true;
+				}
+			}
+		}
+		else if (c instanceof CoordinateClue || c instanceof HotColdClue || c instanceof FairyRingClue)
+		{
+			return itemId == ItemID.SPADE;
+		}
+		else if (c instanceof MapClue)
+		{
+			MapClue mapClue = (MapClue) c;
+
+			return mapClue.getObjectId() == -1 && itemId == ItemID.SPADE;
+		}
+
+		return false;
 	}
 }

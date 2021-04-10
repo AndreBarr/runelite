@@ -28,9 +28,10 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.Range;
+import static net.runelite.client.plugins.gpu.GpuPlugin.MAX_DISTANCE;
 import static net.runelite.client.plugins.gpu.GpuPlugin.MAX_FOG_DEPTH;
 import net.runelite.client.plugins.gpu.config.AntiAliasingMode;
-import static net.runelite.client.plugins.gpu.GpuPlugin.MAX_DISTANCE;
+import net.runelite.client.plugins.gpu.config.ColorBlindMode;
 import net.runelite.client.plugins.gpu.config.UIScalingMode;
 
 @ConfigGroup("gpu")
@@ -95,5 +96,54 @@ public interface GpuPluginConfig extends Config
 	default int fogDepth()
 	{
 		return 0;
+	}
+
+	@ConfigItem(
+		keyName = "useComputeShaders",
+		name = "Compute Shaders",
+		description = "Offloads face sorting to GPU, enabling extended draw distance. Requires plugin restart.",
+		warning = "This feature requires OpenGL 4.3 to use. Please check that your GPU supports this.\nRestart the plugin for changes to take effect.",
+		position = 6
+	)
+	default boolean useComputeShaders()
+	{
+		return true;
+	}
+
+	@Range(
+		min = 0,
+		max = 16
+	)
+	@ConfigItem(
+		keyName = "anisotropicFilteringLevel",
+		name = "Anisotropic Filtering",
+		description = "Configures the anisotropic filtering level.",
+		position = 7
+	)
+	default int anisotropicFilteringLevel()
+	{
+		return 0;
+	}
+
+	@ConfigItem(
+		keyName = "colorBlindMode",
+		name = "Colorblindness Correction",
+		description = "Adjusts colors to account for colorblindness",
+		position = 8
+	)
+	default ColorBlindMode colorBlindMode()
+	{
+		return ColorBlindMode.NONE;
+	}
+
+	@ConfigItem(
+		keyName = "brightTextures",
+		name = "Bright Textures",
+		description = "Use old texture lighting method which results in brighter game textures",
+		position = 9
+	)
+	default boolean brightTextures()
+	{
+		return false;
 	}
 }

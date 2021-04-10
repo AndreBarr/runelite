@@ -70,6 +70,8 @@ public class AntiDragPlugin extends Plugin implements KeyListener
 	private KeyManager keyManager;
 
 	private boolean inPvp;
+	private boolean shiftHeld;
+	private boolean ctrlHeld;
 
 	@Provides
 	AntiDragConfig getConfig(ConfigManager configManager)
@@ -111,18 +113,30 @@ public class AntiDragPlugin extends Plugin implements KeyListener
 	@Override
 	public void keyPressed(KeyEvent e)
 	{
-		if (e.getKeyCode() == KeyEvent.VK_SHIFT && config.onShiftOnly())
+		if (e.getKeyCode() == KeyEvent.VK_CONTROL && config.disableOnCtrl() && !(inPvp || config.onShiftOnly()))
+		{
+			resetDragDelay();
+			ctrlHeld = true;
+		}
+		else if (e.getKeyCode() == KeyEvent.VK_SHIFT && (inPvp || config.onShiftOnly()))
 		{
 			setDragDelay();
+			shiftHeld = true;
 		}
 	}
 
 	@Override
 	public void keyReleased(KeyEvent e)
 	{
-		if (e.getKeyCode() == KeyEvent.VK_SHIFT && config.onShiftOnly())
+		if (e.getKeyCode() == KeyEvent.VK_CONTROL && config.disableOnCtrl() && !(inPvp || config.onShiftOnly()))
+		{
+			setDragDelay();
+			ctrlHeld = false;
+		}
+		else if (e.getKeyCode() == KeyEvent.VK_SHIFT && (inPvp || config.onShiftOnly()))
 		{
 			resetDragDelay();
+			shiftHeld = false;
 		}
 	}
 
@@ -131,8 +145,14 @@ public class AntiDragPlugin extends Plugin implements KeyListener
 	{
 		if (event.getGroup().equals(CONFIG_GROUP))
 		{
+			if (!config.disableOnCtrl())
+			{
+				ctrlHeld = false;
+			}
+
 			if (config.onShiftOnly() || inPvp)
 			{
+				shiftHeld = false;
 				clientThread.invoke(this::resetDragDelay);
 			}
 			else
@@ -168,6 +188,8 @@ public class AntiDragPlugin extends Plugin implements KeyListener
 	{
 		if (!focusChanged.isFocused())
 		{
+			shiftHeld = false;
+			ctrlHeld = false;
 			clientThread.invoke(this::resetDragDelay);
 		}
 		else if (!inPvp && !config.onShiftOnly())
@@ -179,7 +201,9 @@ public class AntiDragPlugin extends Plugin implements KeyListener
 	@Subscribe
 	public void onWidgetLoaded(WidgetLoaded widgetLoaded)
 	{
-		if (widgetLoaded.getGroupId() == WidgetID.BANK_GROUP_ID)
+		if ((widgetLoaded.getGroupId() == WidgetID.BANK_GROUP_ID ||
+			widgetLoaded.getGroupId() == WidgetID.BANK_INVENTORY_GROUP_ID ||
+			widgetLoaded.getGroupId() == WidgetID.DEPOSIT_BOX_GROUP_ID) && (!config.onShiftOnly() || shiftHeld) && !ctrlHeld)
 		{
 			setBankDragDelay(config.dragDelay());
 		}
@@ -188,9 +212,27 @@ public class AntiDragPlugin extends Plugin implements KeyListener
 	private void setBankDragDelay(int delay)
 	{
 		final Widget bankItemContainer = client.getWidget(WidgetInfo.BANK_ITEM_CONTAINER);
+		final Widget bankInventoryItemsContainer = client.getWidget(WidgetInfo.BANK_INVENTORY_ITEMS_CONTAINER);
+		final Widget bankDepositContainer = client.getWidget(WidgetInfo.DEPOSIT_BOX_INVENTORY_ITEMS_CONTAINER);
 		if (bankItemContainer != null)
 		{
 			Widget[] items = bankItemContainer.getDynamicChildren();
+			for (Widget item : items)
+			{
+				item.setDragDeadTime(delay);
+			}
+		}
+		if (bankInventoryItemsContainer != null)
+		{
+			Widget[] items = bankInventoryItemsContainer.getDynamicChildren();
+			for (Widget item : items)
+			{
+				item.setDragDeadTime(delay);
+			}
+		}
+		if (bankDepositContainer != null)
+		{
+			Widget[] items = bankDepositContainer.getDynamicChildren();
 			for (Widget item : items)
 			{
 				item.setDragDeadTime(delay);

@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2017, Cameron <moberg@tuta.io>
  * Copyright (c) 2018, Levi <me@levischuck.com>
+ * Copyright (c) 2020, Anthony <https://github.com/while-loop>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -128,47 +129,71 @@ class XpStateSingle
 		return (xpGained / xpGoal) * 100;
 	}
 
-	private String getTimeTillLevel()
+	private long getSecondsTillLevel()
 	{
+		// Java 8 doesn't have good duration / period objects to represent spans of time that can be formatted
+		// Rather than importing another dependency like joda time (which is practically built into java 10)
+		// below will be a custom formatter that handles spans larger than 1 day
 		long seconds = getTimeElapsedInSeconds();
 
 		if (seconds <= 0 || xpGained <= 0)
 		{
-			// Infinity symbol
-			return "\u221e";
+			return -1;
 		}
 
 		// formula is xpRemaining / xpPerSecond
 		// xpPerSecond being xpGained / seconds
 		// This can be simplified so division is only done once and we can work in whole numbers!
-		long remainingSeconds = (getXpRemaining() * seconds) / xpGained;
+		return (getXpRemaining() * seconds) / xpGained;
+	}
 
-		// Java 8 doesn't have good duration / period objects to represent spans of time that can be formatted
-		// Rather than importing another dependency like joda time (which is practically built into java 10)
-		// below will be a custom formatter that handles spans larger than 1 day
+	private String getTimeTillLevel(XpGoalTimeType goalTimeType)
+	{
+		long remainingSeconds = getSecondsTillLevel();
+		if (remainingSeconds < 0)
+		{
+			return "\u221e";
+		}
 
 		long durationDays = remainingSeconds / (24 * 60 * 60);
 		long durationHours = (remainingSeconds % (24 * 60 * 60)) / (60 * 60);
+		long durationHoursTotal = remainingSeconds / (60 * 60);
 		long durationMinutes = (remainingSeconds % (60 * 60)) / 60;
 		long durationSeconds = remainingSeconds % 60;
 
-		if (durationDays > 1)
+		switch (goalTimeType)
 		{
-			return String.format("%d days %02d:%02d:%02d", durationDays, durationHours, durationMinutes, durationSeconds);
-		}
-		else if (durationDays == 1)
-		{
-			return String.format("1 day %02d:%02d:%02d", durationHours, durationMinutes, durationSeconds);
-		}
-		else if (durationHours > 0)
-		{
-			return String.format("%02d:%02d:%02d", durationHours, durationMinutes, durationSeconds);
-		}
+			case DAYS:
+				if (durationDays > 1)
+				{
+					return String.format("%d days %02d:%02d:%02d", durationDays, durationHours, durationMinutes, durationSeconds);
+				}
+				else if (durationDays == 1)
+				{
+					return String.format("1 day %02d:%02d:%02d", durationHours, durationMinutes, durationSeconds);
+				}
+			case HOURS:
+				if (durationHoursTotal > 1)
+				{
+					return String.format("%d hours %02d:%02d", durationHoursTotal, durationMinutes, durationSeconds);
+				}
+				else if (durationHoursTotal == 1)
+				{
+					return String.format("1 hour %02d:%02d", durationMinutes, durationSeconds);
+				}
+			case SHORT:
+			default:
+				// durationDays = 0 or durationHoursTotal = 0 or goalTimeType = SHORT if we got here.
+				// return time remaining in hh:mm:ss or mm:ss format where hh can be > 24
+				if (durationHoursTotal > 0)
+				{
+					return String.format("%02d:%02d:%02d", durationHoursTotal, durationMinutes, durationSeconds);
+				}
 
-		// Minutes and seconds will always be present
-		return String.format("%02d:%02d", durationMinutes, durationSeconds);
+				// Minutes and seconds will always be present
+				return String.format("%02d:%02d", durationMinutes, durationSeconds);
+		}
 	}
-
 
 	int getXpHr()
 	{
@@ -268,7 +293,9 @@ class XpStateSingle
 			.actionsInSession(getXpAction(actionType).getActions())
 			.actionsRemainingToGoal(getActionsRemaining())
 			.actionsPerHour(getActionsHr())
-			.timeTillGoal(getTimeTillLevel())
+			.timeTillGoal(getTimeTillLevel(XpGoalTimeType.DAYS))
+			.timeTillGoalHours(getTimeTillLevel(XpGoalTimeType.HOURS))
+			.timeTillGoalShort(getTimeTillLevel(XpGoalTimeType.SHORT))
 			.startGoalXp(startLevelExp)
 			.endGoalXp(endLevelExp)
 			.build();
